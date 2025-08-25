@@ -1,29 +1,43 @@
+import { db } from '../db';
+import { gamesTable } from '../db/schema';
 import { type ResetGameInput, type Game } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function resetGame(input: ResetGameInput): Promise<Game> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to reset an existing game to its initial state.
-    // 
-    // Implementation should:
-    // 1. Find the game by ID
-    // 2. Reset the board to empty (9 nulls)
-    // 3. Set current_player back to 'X'
-    // 4. Set status to 'in_progress'
-    // 5. Set result to 'ongoing'
-    // 6. Clear the winner
-    // 7. Update the updated_at timestamp
-    // 8. Return the reset game state
-    
+export const resetGame = async (input: ResetGameInput): Promise<Game> => {
+  try {
+    // First verify the game exists
+    const existingGame = await db.select()
+      .from(gamesTable)
+      .where(eq(gamesTable.id, input.game_id))
+      .execute();
+
+    if (existingGame.length === 0) {
+      throw new Error(`Game with ID ${input.game_id} not found`);
+    }
+
+    // Reset the game to initial state
     const emptyBoard = Array(9).fill(null); // Reset to empty 3x3 board
     
-    return Promise.resolve({
-        id: input.game_id,
+    const result = await db.update(gamesTable)
+      .set({
         board: emptyBoard,
         current_player: 'X', // X always starts first
         status: 'in_progress',
         result: 'ongoing',
         winner: null,
-        created_at: new Date(), // Placeholder - should keep original created_at
         updated_at: new Date()
-    } as Game);
-}
+      })
+      .where(eq(gamesTable.id, input.game_id))
+      .returning()
+      .execute();
+
+    const game = result[0];
+    return {
+      ...game,
+      board: game.board as ('X' | 'O' | null)[] // Type assertion for JSON board column
+    };
+  } catch (error) {
+    console.error('Game reset failed:', error);
+    throw error;
+  }
+};

@@ -1,18 +1,32 @@
+import { db } from '../db';
+import { gamesTable } from '../db/schema';
 import { type GetGameInput, type Game } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function getGame(input: GetGameInput): Promise<Game | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch a specific game by ID from the database.
-    // Should return null if game doesn't exist.
+export const getGame = async (input: GetGameInput): Promise<Game | null> => {
+  try {
+    // Query the game by ID
+    const results = await db.select()
+      .from(gamesTable)
+      .where(eq(gamesTable.id, input.game_id))
+      .execute();
+
+    // Return null if game not found
+    if (results.length === 0) {
+      return null;
+    }
+
+    const game = results[0];
     
-    return Promise.resolve({
-        id: input.game_id,
-        board: Array(9).fill(null), // Placeholder empty board
-        current_player: 'X',
-        status: 'in_progress',
-        result: 'ongoing',
-        winner: null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Game);
-}
+    // Return the game with proper type conversion
+    return {
+      ...game,
+      board: game.board as Game['board'], // JSON field - cast to proper type
+      created_at: new Date(game.created_at), // Ensure Date type
+      updated_at: new Date(game.updated_at)  // Ensure Date type
+    };
+  } catch (error) {
+    console.error('Get game failed:', error);
+    throw error;
+  }
+};
